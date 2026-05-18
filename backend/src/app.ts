@@ -6,6 +6,7 @@ import storeRoutes from './routes/store.routes.js';
 import productRoutes from './routes/product.routes.js';
 import cartRoutes from './routes/cart.route.js';
 import orderRoutes from './routes/order.route.js';
+import { errorHandler } from './middleware/error.middleware.js';
 
 dotenv.config();
 
@@ -25,14 +26,17 @@ app.get("/", (req: Request, res: Response) => {
     res.status(200).json({ message: "KitchenKart API is running!" });
 });
 
-app.use((err: any, req: Request, res: Response, next: any) => {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-        success: false,
-        message: err.message || "Internal Server Error",
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    });
-});
+// app.use((err: any, req: Request, res: Response, next: any) => {
+//     const statusCode = err.statusCode || 500;
+//     res.status(statusCode).json({
+//         success: false,
+//         message: err.message || "Internal Server Error",
+//         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+//     });
+// });
+
+app.use(errorHandler);
+
 
 export default app;
 

@@ -1,79 +1,84 @@
-import Store from "../models/store.model.js"
-import { Request,Response } from "express"
+import { Request, Response } from "express";
+import Store from "../models/store.model.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 interface AuthRequest extends Request {
-    user?: any; // ఇక్కడ req.user లో వచ్చే డేటా కోసం
+    user?: any;
 }
 
-export const addStore = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-        const { name, storeType, description, address, contactNumber } = req.body
+// Add a new Store
+export const addStore = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { name, storeType, description, address, contactNumber } = req.body;
 
-        const store = await Store.create({
-            vendor: req.user._id,
-            name,
-            storeType,
-            description,
-            address,
-            contactNumber
-        });
+    const store = await Store.create({
+        vendor: req.user._id,
+        name,
+        storeType,
+        description,
+        address,
+        contactNumber
+    });
 
-        res.status(201).json({
-            message: `${storeType} added successfully!`,
-            store
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Error adding store', error });
+    res.status(201).json({
+        success: true,
+        message: `${storeType} added successfully!`,
+        store
+    });
+});
+
+// Get All Stores Belonging to the Logged-in Vendor
+export const getMyStores = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const stores = await Store.find({ vendor: req.user._id });
+
+    res.status(200).json({
+        success: true,
+        count: stores.length,
+        stores
+    });
+});
+
+// Get All Verified Stores (With Search & Type Filters for customers)
+export const getStores = asyncHandler(async (req: Request, res: Response) => {
+    const { search, type } = req.query;
+
+    let query: any = { isVerified: true };
+
+    if (type) {
+        query.storeType = type;
     }
-};
 
-export const getMyStores = async (req: AuthRequest, res: Response) => {
-    try {
-        const stores = await Store.find({ vendor: req.user._id });
-        res.status(200).json(stores);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching your stores'});
+    if (search) {
+        query.name = { $regex: search, $options: 'i' };
     }
-};
 
-export const getStores = async (req: Request, res: Response) => {
-    try {
-        const { search, type } = req.query;
+    const stores = await Store.find(query);
 
-        let query: any = { isVerified: true };
+    res.status(200).json({
+        success: true,
+        count: stores.length,
+        stores
+    });
+});
 
-        if (type) {
-            query.storeType = type;
-        }
+// Verify Store (Admin Action)
+export const verifyStore = asyncHandler(async (req: Request, res: Response) => {
+    const { storeId } = req.params;
+    const { status } = req.body;
 
-        if (search) {
-            query.name = { $regex: search, $options: 'i' };
-        }
+    const store = await Store.findByIdAndUpdate(
+        storeId,
+        { isVerified: status },
+        { new: true, runValidators: true }
+    );
 
-        const stores = await Store.find(query);
-        res.status(200).json(stores);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching stores' });
+    if (!store) {
+        res.status(404);
+        throw new Error('Store not found');
     }
-};
 
-export const verifyStore = async (req: any, res: Response) => {
-    try {
-        const { storeId } = req.params;
-        const { status } = req.body;
-
-        const store = await Store.findByIdAndUpdate(
-            storeId,
-            { isVerified: status },
-            { returnDocument: 'after' }
-        );
-
-        if (!store) {
-            return res.status(404).json({ message: 'Store not found' });
-        }
-
-        res.status(200).json({ message: `Store verification status updated to ${status}`, store });
-    } catch (error) {
-        res.status(500).json({ message: 'Error verifying store' });
-    }
-};
+    res.status(200).json({
+        success: true,
+        message: `Store verification status updated to ${status}`,
+        store
+    });
+}); 

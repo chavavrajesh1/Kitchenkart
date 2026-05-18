@@ -1,208 +1,188 @@
-import Product from "../models/product.model.js"
-import Store from "../models/store.model.js"
-import { Response } from "express"
+import Product from "../models/product.model.js";
+import Store from "../models/store.model.js";
 import { STORE_CATEGORY_MAP } from "../utils/appConstants.js";
-import fs from 'fs';
+import asyncHandler from "../utils/asyncHandler.js";
+import { Request, Response } from "express"
+import fs from "fs";
 import csv from "csv-parser";
 
-export const addProduct = async (req: any, res: Response) => {
-    try {
-        const { name, description, price, category, storeId, stock } = req.body
+// Add Single Product
+export const addProduct = asyncHandler(async (req: any, res: Response) => {
+    const { name, description, price,category, storeId, stock } = req.body;
 
-        const store = await Store.findOne({ _id: storeId, vendor: req.user._id })
-
-        if(!store) {
-            return res.status(404).json({ message: 'Store not found or you are not the owner' });
-        }
-
-        const allowedCategories = STORE_CATEGORY_MAP[store.storeType];
-
-        if(!allowedCategories || !allowedCategories.includes(category)) {
-            return res.status(400).json({
-                message: `Category '${category}' is not allowed for store type '${store.storeType}'`,
-                allowedCategories
-            });
-        }
-
-        const imageUrl = req.file ? req.file.path : "";
-
-        const product = await Product.create({
-            store: storeId,
-            vendor: req.user._id,
-            name,
-            description,
-            price,
-            category,
-            stock: stock || 10,
-            image: imageUrl
-        });
-
-        res.status(201).json({
-            message: 'Product added successfully!',
-            product
-        });
-    } catch(error) {
-        console.error("Error in addProduct:", error);
-        res.status(500).json({ message: 'Error adding product' });
+    const store = await Store.findOne({ _id: storeId, vendor: req.user._id });
+    if (!store) {
+        res.status(404);
+        throw new Error('Store not found or you are not the owner');
     }
-};
 
-export const getProductsByStore = async (req: any, res: Response) => {
-    try {
-        const { storeId } = req.params;
-        const products = await Product.find({ store: storeId }).sort({ createdAt: -1 });
-        res.status(200).json({
-            count: products.length,
-            products
-        });
-    } catch (error) {
-        console.error("Error in getProductByStore:", error);
-        res.status(500).json({ message: 'Error fetching products' });
+    const allowedCategories = STORE_CATEGORY_MAP[store.storeType];
+    if (!allowedCategories || !allowedCategories.includes(category)) {
+        res.status(400);
+        throw new Error(`Category '${category}' is not allowed for store type '${store.storeType}'`);
     }
-};
 
-export const getAllProducts = async (req: any, res: Response) => {
-    try {
+    const imageUrl = req.file ? req.file.path : "" ;
 
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 20;
-        const skip = (page - 1) * limit;
+    const product = await Product.create({
+        store: storeId,
+        vendor: req.user._id,
+        name,
+        description,
+        price,
+        category,
+        stock: stock || 10,
+        image: imageUrl
+    });
 
-        const { search, category, minPrice, maxPrice, storeId } = req.query;
-        let queryObject: any = {};
+    res.status(201). json({ success: true, message: 'Product addes successfully!', product });
+});
 
-        if (category) {
-            queryObject.category = category;
-        }
+// Get Products by Store
+export const getProductsByStore = asyncHandler(async (req: any, res: Response) => {
+    const { storeId } = req.params;
+    const products = await Product.find({ store: storeId }).sort({ createdAt: -1 });
 
-        if (storeId) {
-            queryObject.store = storeId;
-        }
+    res.status(200).json({ success: true, count: products.length, products });
+});
 
-        if (minPrice || maxPrice) {
-            queryObject.price = {} ;
-            if (minPrice) queryObject.price.$gte = Number(minPrice);
-            if (maxPrice) queryObject.price.$lte = Number(maxPrice);
-        }
+// Get All Products (Witeh Filter, Search & Pagination)
+export const getAllProducts = asyncHandler(async (req: any, res: Response) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
 
-        if (search) {
-            queryObject.$text = { $search: search as string };
-        }
+    const { search, category, minPrice, maxPrice, storeId } = req.query;
+    let queryObject: any = {};
 
-        const products = await Product.find(queryObject)
-            .populate("store", "name location storeType")
-            .sort(search ? { score: { $meta: "textScore" } } : { createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+    if (category) queryObject.category = category;
+    if (storeId) queryObject.store = storeId;
 
-        const totalProducts = await Product.countDocuments(queryObject);
-
-        res.status(200).json({
-            success: true,
-            meta: {
-                totalProducts,
-                currentPage: page,
-                totalPages: Math.ceil(totalProducts / limit),
-                limit
-            },
-            products
-        });
-    } catch (error: any) {
-        console.error("Error in getAllProducts:", error);
-        res.status(500).json({ message: 'Error fetching products', error: error.message })
+    if (minPrice || maxPrice) {
+        queryObject.price = {};
+        if (minPrice) queryObject.price.$gte = Number(minPrice);
+        if (maxPrice) queryObject.price.$lte = Number(maxPrice);
     }
-};
 
-export const deleteProduct = async (req: any, res: Response) => {
-    try {
-        const { productId } = req.params;
-
-        const product = await Product.findOneAndDelete({
-            _id: productId,
-            vendor: req.user._id,
-        });
-
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found or unauthorized' });
-        }
-
-        res.status(200).json({ message: 'Product deleted successfully' });
-    } catch (error) {
-        console.error("Error in deleteProduct:", error);
-        res.status(500).json({ message: 'Error deleting product' });
+    if (search) {
+        queryObject.$text = { $search: search as string };
     }
-};
 
-export const updateProduct = async (req: any, res: Response) => {
-    try {
-        const { productId } = req.params;
-        const updates = req.body
+    const products = await Product.find(queryObject)
+        .populate("store", "name location storeType" )
+        .sort(search ? { score: { $meta: "textScore" } } : { createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
-        const product = await Product.findOneAndUpdate(
-            { _id: productId, vendor: req.user._id },
-            { $set: updates },
-            { new: true, runValidators: true }
-        );
+    const totalProducts = await Product.countDocuments(queryObject);
 
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found or unauthorized'})
-        }
+    res.status(200).json({
+        success: true,
+        meta: {
+            totalProducts,
+            currentPage: page,
+            totalPages: Math.ceil(totalProducts / limit),
+            limit
+        },
+        products
+    });
+});
 
-        res.status(200).json({ message: 'Product updated Successfully', product });
-    } catch (error) {
-        console.error("Error in updateProduct:", error);
-        res.status(500).json({ message: 'Error updating product '});
+// Delete Product
+export const deleteProduct = asyncHandler(async (req: any, res: Response) => {
+    const { productId } = req.params;
+
+    const product = await Product.findOneAndDelete({
+        _id: productId,
+        vendor: req.user._id,
+    });
+
+    if (!product) {
+        res.status(404);
+        throw new Error('Product not found or unauthorized');
     }
-};
 
-export const bulkuploadProducts = async (req: any, res: Response) => {
-    try {
-        const { storeId } = req.body;
-        const vendorId = req.user._id;  
+    res.status(200).json({ success: true, message: 'Product deleted Successfully' });
+});
 
-        const store = await Store.findOne({ _id: storeId, vendor: vendorId });
-        if (!store) {
-            return res.status(404).json({ message: 'Store not found or unauthorized' });
-        }
+// Update Product
+export const updateProduct = asyncHandler(async (req: any, res: Response) => {
+    const { productId } = req.params;
+    const updates = req.body;
+    
+    const product = await Product.findOneAndUpdate(
+        { _id: productId, vendor: req.user._id },
+        { $set: updates },
+        { new: true, runValidators: true }
+    );
 
-        if (!req.file) {
-            return res.status(400).json({ message: 'Please upload a csv file' });
-        }
+    if (!product) {
+        res.status(404);
+        throw new Error('Product not found or unauthorized')
+    }
 
-        const products: any[] = [];
-        const allowedCategories = STORE_CATEGORY_MAP[store.storeType];
+    res.status(200).json({ success: true, message: 'Product updated Successfully', product });
+});
 
-        fs.createReadStream(req.file.path)
-            .pipe(csv()) 
-            .on('data', (row) => {
-                if (allowedCategories.includes(row.category)) {
-                    products.push({
-                        name: row.name,
-                        description: row.description,
-                        price: Number(row.price),
-                        category: row.category,
-                        stock: Number(row.stock) || 0,
-                        store: storeId,
-                        vendor: vendorId,
-                        image: ""
-                    });
-                }
-            })
-            .on('end', async () => {
-                if (products.length === 0) { 
-                    return res.status(400).json({ message: 'No Valid products found in CSV' });
+// Bulk Upload products via CSV
+export const bulkuploadProducts = asyncHandler( async (req: any, res: Response, next: any) => {
+    const { storeId } = req.body;
+    const vendorId = req.user._id;
+
+    const store = await Store.findOne({ _id: storeId, vendor: vendorId });
+    if (!store) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        res.status(404);
+        throw new Error('Store not found or unauthorized');
+    }
+
+    if (!req.file) {
+        res.status(400);
+        throw new Error('Please upload a csv file');
+    }
+
+    const products: any[] = [];
+    const allowedCategories = STORE_CATEGORY_MAP[store.storeType];
+
+    // CSV Parsing Stream Logic
+    fs.createReadStream(req.file.path)
+        .pipe(csv())
+        .on('data', (row) => {
+            if (allowedCategories && allowedCategories.includes(row.category)) {
+                products.push({
+                    name: row.name,
+                    description: row.description,
+                    price: Number(row.price),
+                    category: row.category,
+                    stock: Number(row.stock) || 0,
+                    store: storeId,
+                    vendor: vendorId,
+                    image: ""
+                });
+            }
+        })
+        .on ('error', (streamErr: any) => {
+            if (req.file) fs.unlinkSync(req.file.path);
+            next(streamErr);
+        })
+        .on ('end', async () => {
+            try {
+                if (products.length === 0) {
+                    if (req.file) fs.unlinkSync(req.file.path);
+                    res.status(400);
+                    return next(new Error('No Valid Products found in CSV or categories mismatched'));
                 }
 
                 await Product.insertMany(products);
-
-                fs.unlinkSync(req.file.path);
+                if (req.file) fs.unlinkSync(req.file.path);
 
                 res.status(201).json({
-                    message: `Successfully uploaded ${products.length} products!`,
+                    success: true,
+                    message: `Successfully Uploaded ${products.length} products!`,
                 });
-            })
-    } catch (error) {
-        console.error("Error in bulkUpload", error);
-        res.status(500).json({ message: 'Error processing CSV file '});
-    }
-};
+            } catch (dbErr) {
+                if (req.file) fs.unlinkSync(req.file.path);
+                next(dbErr);
+            }
+        })
+});

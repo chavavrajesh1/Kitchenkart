@@ -6,4 +6,5 @@ export interface IUser {
     role: 'admin' | 'customer' | 'vendor';
     PhoneNumber?: string;
     createdAt?: Date;
+    comparePassword(enteredPassword: string): Promise<boolean>;
 }
