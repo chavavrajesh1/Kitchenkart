@@ -1,42 +1,27 @@
-# 🛒 Kitchen Kart - Backend
+# KitchenKart Backend 🛒
+A robust, production-ready Multi-Vendor E-Commerce Backend built with Node.js, Express, TypeScript, and MongoDB.
 
-**Kitchen Kart** is a high-performance, scalable **Grocery & Vegetable Delivery API** built with **Node.js**, **TypeScript**, and **MongoDB**. It features a multi-vendor architecture, allowing store owners to manage inventory while providing customers with a seamless shopping experience.
+## 🚀 Key Architectural Highlights (Mid-Senior Standards)
+* **ACID Transactions:** Implemented Mongoose sessions (`startSession`) in the Order service to ensure strict data consistency and prevent race conditions during checkout.
+* **Database Write Optimization:** Utilized `Product.bulkWrite()` and `insertMany` for high-performance bulk updates and creation.
+* **Node.js Streams for Bulk Upload:** Built a memory-efficient CSV product bulk upload feature using Node.js Streams (`fs.createReadStream`) and `csv-parser` to handle large files without blocking the event loop.
+* **Centralized Error Handling:** Integrated a global Error Handling Middleware and a custom `asyncHandler` wrapper to eliminate `try-catch` boilerplate and ensure uniform API responses.
+* **Advanced MongoDB Features:** Implemented Compound Indexes for query optimization and Text Search Indexes for fast product searching.
+* **Secure Authentication:** Model-level `pre-save` hashing hooks using `bcryptjs` for robust user password security.
 
----
+## 🛠️ Tech Stack
+* **Backend:** Node.js, Express.js, TypeScript
+* **Database:** MongoDB (Mongoose ORM)
+* **Libraries:** Bcryptjs, JsonWebToken, CSV-Parser, Multer
 
-## 🚀 Key Features
+## 💻 Getting Started
 
-### 🔐 Authentication & Security
-* **JWT-based Auth:** Secure login and registration with Role-Based Access Control (RBAC).
-* **Email Verification:** Integrated **Nodemailer** for OTP/Account verification.
-* **Middleware Protected:** Custom middlewares for `protect`, `isVendor`, and `isAdmin`.
+### Prerequisites
+* Node.js (v18 or higher)
+* MongoDB Local or Atlas URI
 
-### 🏪 Vendor & Product Management
-* **Multi-Store Support:** Vendors can create and manage their specific stores.
-* **Dynamic Categories:** Store-type specific category mapping (e.g., Grocery stores can't sell Electronics).
-* **Bulk Upload:** Optimized **CSV File Processing** using `csv-parser` for adding thousands of products in seconds.
-* **Image Management:** Cloud-based image storage integrated with **Cloudinary**.
-
-### 🛒 Cart & Order Lifecycle
-* **Smart Cart:** Persistent cart logic with single-store constraint (prevents multi-store checkout conflicts).
-* **Inventory Management:** **Automated Stock Reduction** using MongoDB `bulkWrite` upon successful order placement.
-* **Order Tracking:** Full lifecycle support from `Placed` to `Delivered`.
-* **Email Receipts:** Automatic order confirmation emails sent to customers.
-
----
-
-## 🛠 Tech Stack
-
-| Technology | Purpose |
-| --- | --- |
-| **Node.js** | Server-side Runtime |
-| **TypeScript** | Static Typing & Code Reliability |
-| **Express.js** | Web Framework |
-| **MongoDB** | NoSQL Database |
-| **Mongoose** | ODM for MongoDB |
-| **Cloudinary** | Image Hosting |
-| **Multer** | File Upload Handling |
-| **Nodemailer** | Transactional Emails |
-
----
-
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/chavavrajesh1/Kitchenkart.git](https://github.com/chavavrajesh1/Kitchenkart.git)
+   cd Kitchenkart
